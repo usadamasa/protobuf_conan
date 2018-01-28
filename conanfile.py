@@ -9,34 +9,26 @@ class ProtobufConan(ConanFile):
     description = "<Description of Protobuf here>"
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False]}
-    default_options = "shared=False"
+    default_options = "shared=True"
     generators = "cmake"
 
     def source(self):
-        self.run("git clone https://github.com/memsharded/hello.git")
-        self.run("cd hello && git checkout static_shared")
-        # This small hack might be useful to guarantee proper /MT /MD linkage in MSVC
-        # if the packaged project doesn't have variables to set it properly
-        tools.replace_in_file("hello/CMakeLists.txt", "PROJECT(MyHello)", '''PROJECT(MyHello)
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup()''')
+        self.run('git clone --depth=1 -b v%s https://github.com/google/protobuf.git' % self.version)
 
     def build(self):
-        cmake = CMake(self)
-        cmake.configure(source_folder="hello")
-        cmake.build()
-
-        # Explicit way:
-        # self.run('cmake %s/hello %s' % (self.source_folder, cmake.command_line))
-        # self.run("cmake --build . %s" % cmake.build_config)
+        with tools.chdir('protobuf'):
+            self.run("./autogen.sh")
+            self.run("./configure --prefix=${PWD}/installed")
+            self.run("make -j2")
+            self.run("make install")
 
     def package(self):
-        self.copy("*.h", dst="include", src="hello")
-        self.copy("*hello.lib", dst="lib", keep_path=False)
-        self.copy("*.dll", dst="bin", keep_path=False)
-        self.copy("*.so", dst="lib", keep_path=False)
-        self.copy("*.dylib", dst="lib", keep_path=False)
-        self.copy("*.a", dst="lib", keep_path=False)
+        self.copy("*.h", dst="include", src="protobuf/installed/include")
+        self.copy("*proto*.lib", dst="lib", keep_path=False)
+        self.copy("*proto*.dll", dst="bin", keep_path=False)
+        self.copy("*proto*.so", dst="lib", keep_path=False)
+        self.copy("*proto*.dylib", dst="lib", keep_path=False)
+        self.copy("*proto*.a", dst="lib", keep_path=False)
 
     def package_info(self):
-        self.cpp_info.libs = ["hello"]
+        self.cpp_info.libs = ["protobuf"]
